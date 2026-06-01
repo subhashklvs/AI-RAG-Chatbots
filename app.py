@@ -588,6 +588,12 @@ with st.sidebar:
         st.rerun()
     if bc2.button("🗑️ Reset All", type="primary", use_container_width=True):
         st.session_state.history = []
+        try:
+            chroma = chromadb.PersistentClient(path=str(CHROMA_PATH), settings=Settings(anonymized_telemetry=False))
+            chroma.delete_collection(COLLECTION_NAME)
+            load_collection.clear()
+        except Exception:
+            pass
         st.rerun()
 
 if collection is None or collection.count() == 0:
