@@ -9,8 +9,7 @@ from pathlib import Path
 
 import streamlit as st
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+from groq import Groq
 import chromadb
 from chromadb.config import Settings
 import io
@@ -20,13 +19,12 @@ import docx
 
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-client = genai.Client(api_key=GEMINI_API_KEY)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+client = Groq(api_key=GROQ_API_KEY)
 
 CHROMA_PATH = Path("chroma_db")
 COLLECTION_NAME = "documents"
-EMBEDDING_MODEL = "models/gemini-embedding-001"
-GENERATION_MODEL = "gemini-2.5-flash"
+GENERATION_MODEL = "llama-3.1-8b-instant"
 TOP_K = 5
 CHUNK_SIZE = 3000
 CHUNK_OVERLAP = 300
@@ -66,41 +64,6 @@ def chunk_documents(pages):
                 break
             start += CHUNK_SIZE - CHUNK_OVERLAP
     return all_chunks
-
-def embed_chunks(chunks, batch_size=40):
-    embeddings = []
-    total = len(chunks)
-    progress_bar = st.progress(0, text="Embedding chunks...")
-    
-    for idx in range(0, total, batch_size):
-        batch = chunks[idx : idx + batch_size]
-        progress_bar.progress(idx / total, text=f"⚡ Embedding batch {idx+1} to {min(idx+batch_size, total)} of {total} (Safe Mode)...")
-        
-        retries = 3
-        for attempt in range(retries):
-            try:
-                result = client.models.embed_content(
-                    model=EMBEDDING_MODEL,
-                    contents=[c["text"] for c in batch],
-                    config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
-                )
-                embeddings.extend([e.values for e in result.embeddings])
-                break
-            except Exception as e:
-                err_str = str(e).upper()
-                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                    if attempt < retries - 1:
-                        st.toast("⏳ Google Limit Reached! Pausing 60s for automatic reset...", icon="⚠️")
-                        time.sleep(60)
-                        continue
-                st.error(f"❌ **Google API Quota Exceeded!**\\n\\nYou have hit the rate limit for your Free Tier Gemini API key. Please wait a minute and try again.\\n\\n*Technical Details: {e}*")
-                st.stop()
-        time.sleep(4.5)  # Mathematically guarantees we stay under 15 Requests Per Minute
-    
-    progress_bar.progress(1.0, text="Embedding complete! ✅")
-    time.sleep(1.0)
-    progress_bar.empty()
-    return embeddings
 
 SYSTEM_PROMPT = """You are a precise document Q&A assistant.
 Rules:
@@ -507,13 +470,13 @@ else:
 st.markdown("""
 <div style="background: linear-gradient(90deg, #8b5cf6 0%, #3b82f6 100%); padding: 30px; border-radius: 16px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); text-align: left !important;">
     <div style="color: #ffffff !important; margin: 0; font-size: 2.4rem !important; font-weight: 800 !important; background: none !important; display: block !important; letter-spacing: -0.5px;"><img src="https://em-content.zobj.net/source/apple/391/robot_1f916.png" width="48" style="vertical-align: middle; margin-right: 12px; margin-bottom: 6px;"> AI RAG Chatbot</div>
-    <p style="color: #ffffff !important; margin: 10px 0 0 0; font-size: 1.05rem !important; opacity: 0.95; font-weight: 400 !important;">Ask questions about your documents • Powered by Google Gemini (Free)</p>
+    <p style="color: #ffffff !important; margin: 10px 0 0 0; font-size: 1.05rem !important; opacity: 0.95; font-weight: 400 !important;">Ask questions about your documents • Powered by Groq</p>
 </div>
 """, unsafe_allow_html=True)
 
 # Build the custom sidebar matching the screenshot
 with st.sidebar:
-    st.markdown("### <img src='https://em-content.zobj.net/source/apple/391/robot_1f916.png' width='30' style='vertical-align: middle; margin-right: 8px; margin-bottom: 4px;'> AI RAG Chatbot\n**Powered by Google Gemini (Free)**", unsafe_allow_html=True)
+    st.markdown("### <img src='https://em-content.zobj.net/source/apple/391/robot_1f916.png' width='30' style='vertical-align: middle; margin-right: 8px; margin-bottom: 4px;'> AI RAG Chatbot\n**Powered by Groq**", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
     # Metrics Row
@@ -556,10 +519,7 @@ with st.sidebar:
                 
                 chunks = chunk_documents(pages)
             
-            # Embed chunks with progress bar
-            embeddings = embed_chunks(chunks)
-            
-            with st.spinner("Storing in ChromaDB..."):
+            with st.spinner("Storing in ChromaDB (this will automatically generate embeddings locally)..."):
                 chroma = chromadb.PersistentClient(path=str(CHROMA_PATH), settings=Settings(anonymized_telemetry=False))
                 try:
                     chroma.delete_collection(COLLECTION_NAME)
@@ -570,7 +530,6 @@ with st.sidebar:
                 new_collection.add(
                     ids=ids,
                     documents=[c["text"] for c in chunks],
-                    embeddings=embeddings,
                     metadatas=[{"source": c["source"], "page": c["page"]} for c in chunks],
                 )
             
@@ -607,11 +566,11 @@ if "history" not in st.session_state:
 if not st.session_state.history:
     with st.chat_message("assistant", avatar="😎"):
         st.markdown("""
-        **👋 Welcome! I'm your AI RAG Chatbot powered by Google Gemini.**
+        **👋 Welcome! I'm your AI RAG Chatbot powered by Groq.**
         
         📂 Upload documents in the sidebar (PDF, DOCX, TXT, CSV) and ask me anything about them.
         
-        ⚡ Google Gemini gives ultra-fast responses — try it!
+        ⚡ Groq gives ultra-fast responses — try it!
         """)
 
 # Render Chat History
@@ -632,21 +591,19 @@ question = st.chat_input("Ask a question about your documents...")
 
 if question and question.strip():
     with st.spinner("Thinking..."):
-        q_embed_res = client.models.embed_content(
-            model=EMBEDDING_MODEL,
-            contents=question,
-            config=types.EmbedContentConfig(task_type="RETRIEVAL_QUERY")
-        )
-        q_embed = q_embed_res.embeddings[0].values
-        results = collection.query(query_embeddings=[q_embed], n_results=TOP_K, include=["documents", "metadatas", "distances"])
+        results = collection.query(query_texts=[question], n_results=TOP_K, include=["documents", "metadatas", "distances"])
         chunks = [{"text": d, "source": m["source"], "page": m["page"], "distance": round(dist, 4)}
                   for d, m, dist in zip(results["documents"][0], results["metadatas"][0], results["distances"][0])]
         context = "\n\n".join(f"[Source: {c['source']}, Page {c['page']}]\n{c['text']}" for c in chunks)
-        prompt = f"{SYSTEM_PROMPT}\n\nContext:\n{context}\n\nQuestion: {question}"
-        response = client.models.generate_content(
+        response = client.chat.completions.create(
             model=GENERATION_MODEL,
-            contents=prompt,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"}
+            ],
+            temperature=0.2,
+            max_tokens=1024,
         )
-        answer = response.text.strip()
+        answer = response.choices[0].message.content.strip()
         st.session_state.history.append({"question": question, "answer": answer, "chunks": chunks})
         st.rerun()
