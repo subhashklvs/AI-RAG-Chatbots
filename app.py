@@ -700,7 +700,7 @@ with st.sidebar:
         for i, entry in enumerate(reversed(st.session_state.all_history)):
             title = entry['question'][:40] + ("..." if len(entry['question']) > 40 else "")
             original_idx = len(st.session_state.all_history) - 1 - i
-            if st.button(f"💬 {title}", key=f"hist_{original_idx}", type="tertiary", use_container_width=True):
+            if st.button(f"💬 {title}", key=f"hist_{original_idx}", type="secondary", use_container_width=True):
                 st.session_state.history = [st.session_state.all_history[original_idx]]
                 st.rerun()
     else:
@@ -708,7 +708,6 @@ with st.sidebar:
 
 if collection is None or collection.count() == 0:
     st.info("👋 **Welcome!** Your database is currently empty.\n\nPlease upload documents using the sidebar on the left and click **'Process Documents'** to begin.")
-    st.stop()
 
 # Show welcome message if chat is empty
 if not st.session_state.history:
@@ -739,10 +738,15 @@ question = st.chat_input("Ask a question about your documents...")
 
 if question and question.strip():
     with st.spinner("Thinking..."):
-        results = collection.query(query_texts=[question], n_results=TOP_K, include=["documents", "metadatas", "distances"])
-        chunks = [{"text": d, "source": m["source"], "page": m["page"], "distance": round(dist, 4)}
-                  for d, m, dist in zip(results["documents"][0], results["metadatas"][0], results["distances"][0])]
-        context = "\n\n".join(f"[Source: {c['source']}, Page {c['page']}]\n{c['text']}" for c in chunks)
+        chunks = []
+        context = "No documents provided yet."
+        if collection is not None and collection.count() > 0:
+            n_res = min(TOP_K, collection.count())
+            results = collection.query(query_texts=[question], n_results=n_res, include=["documents", "metadatas", "distances"])
+            chunks = [{"text": d, "source": m["source"], "page": m["page"], "distance": round(dist, 4)}
+                      for d, m, dist in zip(results["documents"][0], results["metadatas"][0], results["distances"][0])]
+            context = "\n\n".join(f"[Source: {c['source']}, Page {c['page']}]\n{c['text']}" for c in chunks)
+            
         response = client.chat.completions.create(
             model=GENERATION_MODEL,
             messages=[
