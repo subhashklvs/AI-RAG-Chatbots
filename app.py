@@ -444,6 +444,100 @@ button[kind="primaryFormSubmit"]:hover {
     background-color: #818cf8 !important;
     transform: scale(1.08) !important;
 }
+
+/* Fix Streamlit light mode default white backgrounds */
+[data-testid="stBottom"], [data-testid="stBottomBlockContainer"] {
+    background-color: transparent !important;
+}
+
+[data-testid="stFileUploader"] section, 
+[data-testid="stFileUploadDropzone"] {
+    background-color: transparent !important;
+    color: #f1f5f9 !important;
+}
+
+[data-testid="stFileUploader"] button {
+    background-color: rgba(99, 102, 241, 0.2) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(99, 102, 241, 0.4) !important;
+}
+
+[data-testid="stFileUploader"] small, 
+[data-testid="stFileUploaderDropzoneInstructions"] {
+    color: #cbd5e1 !important;
+}
+
+/* Top Banner Styles */
+.top-banner-card {
+    background: linear-gradient(90deg, #8b5cf6 0%, #3b82f6 100%);
+    padding: 30px;
+    border-radius: 16px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    text-align: left !important;
+}
+
+.top-banner-title {
+    color: #ffffff !important;
+    margin: 0;
+    font-size: 2.4rem !important;
+    font-weight: 800 !important;
+    background: none !important;
+    display: block !important;
+    letter-spacing: -0.5px;
+}
+
+.top-banner-icon {
+    width: 48px;
+    vertical-align: middle;
+    margin-right: 12px;
+    margin-bottom: 6px;
+}
+
+.top-banner-subtitle {
+    color: #ffffff !important;
+    margin: 10px 0 0 0;
+    font-size: 1.05rem !important;
+    opacity: 0.95;
+    font-weight: 400 !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    h1, .gradient-title, .top-banner-title {
+        font-size: 1.8rem !important;
+    }
+    .top-banner-icon {
+        width: 36px !important;
+        margin-right: 8px !important;
+        margin-bottom: 4px !important;
+    }
+    .top-banner-subtitle {
+        font-size: 0.9rem !important;
+    }
+    .top-banner-card {
+        padding: 20px !important;
+    }
+    .floating-emoji {
+        font-size: 2rem !important;
+    }
+    [data-testid="stForm"] {
+        padding: 15px !important;
+    }
+    [data-testid="stMetricValue"] {
+        font-size: 1.6rem !important;
+    }
+    [data-testid="stChatMessage"] {
+        padding: 12px !important;
+        margin-bottom: 12px !important;
+    }
+    [data-testid="stChatInput"] {
+        padding: 6px 12px !important;
+    }
+    [data-testid="stSidebar"] h2 {
+        font-size: 1.2rem !important;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -468,9 +562,9 @@ else:
 
 # Create the top wide gradient banner card matching the screenshot
 st.markdown("""
-<div style="background: linear-gradient(90deg, #8b5cf6 0%, #3b82f6 100%); padding: 30px; border-radius: 16px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); text-align: left !important;">
-    <div style="color: #ffffff !important; margin: 0; font-size: 2.4rem !important; font-weight: 800 !important; background: none !important; display: block !important; letter-spacing: -0.5px;"><img src="https://em-content.zobj.net/source/apple/391/robot_1f916.png" width="48" style="vertical-align: middle; margin-right: 12px; margin-bottom: 6px;"> AI RAG Chatbot</div>
-    <p style="color: #ffffff !important; margin: 10px 0 0 0; font-size: 1.05rem !important; opacity: 0.95; font-weight: 400 !important;">Ask questions about your documents • Powered by Groq</p>
+<div class="top-banner-card">
+    <div class="top-banner-title"><img src="https://em-content.zobj.net/source/apple/391/robot_1f916.png" class="top-banner-icon"> AI RAG Chatbot</div>
+    <p class="top-banner-subtitle">Ask questions about your documents • Powered by Groq</p>
 </div>
 """, unsafe_allow_html=True)
 
