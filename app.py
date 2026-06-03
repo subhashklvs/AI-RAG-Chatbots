@@ -353,7 +353,8 @@ hr {
 }
 
 /* Sidebar history items */
-.sidebar-history-item {
+.sidebar-history-item,
+button[data-testid="stBaseButton-tertiary"] {
     background-color: rgba(255, 255, 255, 0.03) !important;
     border: 1px solid rgba(255, 255, 255, 0.05) !important;
     border-radius: 10px !important;
@@ -363,12 +364,20 @@ hr {
     color: #cbd5e1 !important;
     line-height: 1.4 !important;
     transition: all 0.3s ease !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
 }
 
-.sidebar-history-item:hover {
+.sidebar-history-item:hover,
+button[data-testid="stBaseButton-tertiary"]:hover {
     background-color: rgba(99, 102, 241, 0.08) !important;
     border-color: rgba(99, 102, 241, 0.2) !important;
     color: #ffffff !important;
+}
+
+button[data-testid="stBaseButton-tertiary"] p {
+    margin: 0 !important;
+    font-size: 0.92rem !important;
 }
 
 /* --- PREMIUM HIGH-FIDELITY ANIMATIONS --- */
@@ -600,6 +609,8 @@ st.markdown("""
 
 if "history" not in st.session_state:
     st.session_state.history = []
+if "all_history" not in st.session_state:
+    st.session_state.all_history = []
 
 # Build the custom sidebar matching the screenshot
 with st.sidebar:
@@ -674,6 +685,7 @@ with st.sidebar:
         st.rerun()
     if bc2.button("🗑️ Reset All", type="primary", use_container_width=True):
         st.session_state.history = []
+        st.session_state.all_history = []
         try:
             chroma = chromadb.PersistentClient(path=str(CHROMA_PATH), settings=Settings(anonymized_telemetry=False))
             chroma.delete_collection(COLLECTION_NAME)
@@ -684,10 +696,13 @@ with st.sidebar:
 
     st.markdown("<hr style='margin: 15px 0; border-color: rgba(255,255,255,0.05);'>", unsafe_allow_html=True)
     st.markdown("### 🕒 Chat History")
-    if st.session_state.history:
-        for entry in reversed(st.session_state.history):
+    if st.session_state.all_history:
+        for i, entry in enumerate(reversed(st.session_state.all_history)):
             title = entry['question'][:40] + ("..." if len(entry['question']) > 40 else "")
-            st.markdown(f"<div class='sidebar-history-item'>💬 {title}</div>", unsafe_allow_html=True)
+            original_idx = len(st.session_state.all_history) - 1 - i
+            if st.button(f"💬 {title}", key=f"hist_{original_idx}", type="tertiary", use_container_width=True):
+                st.session_state.history = [st.session_state.all_history[original_idx]]
+                st.rerun()
     else:
         st.markdown("<div style='color: #94a3b8; font-size: 0.9rem;'>No chat history yet.</div>", unsafe_allow_html=True)
 
@@ -739,4 +754,5 @@ if question and question.strip():
         )
         answer = response.choices[0].message.content.strip()
         st.session_state.history.append({"question": question, "answer": answer, "chunks": chunks})
+        st.session_state.all_history.append({"question": question, "answer": answer, "chunks": chunks})
         st.rerun()
