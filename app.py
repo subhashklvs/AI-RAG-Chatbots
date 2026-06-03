@@ -220,9 +220,9 @@ button[kind="primaryFormSubmit"]:active {
 }
 
 /* Sidebar Action Buttons Custom Colors */
-/* Clear Chat (Secondary) - Bright Blue */
-button[data-testid="stBaseButton-secondary"] {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+/* Clear Chat (Secondary) - Bright Purple */
+button[data-testid="stBaseButton-secondary"], button[kind="secondary"] {
+    background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%) !important;
     border: none !important;
     color: #ffffff !important;
     font-weight: 600 !important;
@@ -232,14 +232,14 @@ button[data-testid="stBaseButton-secondary"] {
     width: 100% !important;
 }
 
-button[data-testid="stBaseButton-secondary"]:hover {
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4) !important;
+button[data-testid="stBaseButton-secondary"]:hover, button[kind="secondary"]:hover {
+    box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4) !important;
     transform: translateY(-2px) !important;
     color: #ffffff !important;
 }
 
 /* Reset All & Process (Primary) - Bright Purple */
-button[data-testid="stBaseButton-primary"] {
+button[data-testid="stBaseButton-primary"], button[kind="primary"] {
     background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%) !important;
     border: none !important;
     color: #ffffff !important;
@@ -249,7 +249,7 @@ button[data-testid="stBaseButton-primary"] {
     padding: 8px 16px !important;
 }
 
-button[data-testid="stBaseButton-primary"]:hover {
+button[data-testid="stBaseButton-primary"]:hover, button[kind="primary"]:hover {
     box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4) !important;
     transform: translateY(-2px) !important;
     color: #ffffff !important;
