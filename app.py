@@ -41,8 +41,38 @@ def load_pdf_stream(uploaded_file):
 
 def load_docx_stream(uploaded_file):
     doc = docx.Document(io.BytesIO(uploaded_file.read()))
-    full_text = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
-    return [{"text": full_text, "source": uploaded_file.name, "page": 1}]
+    pages = []
+    current_page = []
+    page_num = 1
+    
+    for p in doc.paragraphs:
+        xml_str = p._element.xml
+        if 'w:lastRenderedPageBreak' in xml_str or 'w:type="page"' in xml_str:
+            if current_page:
+                text = "\n".join(current_page).strip()
+                if text:
+                    pages.append({"text": text, "source": uploaded_file.name, "page": page_num})
+            current_page = []
+            page_num += 1
+            
+        if p.text.strip():
+            current_page.append(p.text)
+            
+    if current_page:
+        text = "\n".join(current_page).strip()
+        if text:
+            pages.append({"text": text, "source": uploaded_file.name, "page": page_num})
+            
+    # Fallback if no page breaks were found but document is long
+    if len(pages) == 1 and len(pages[0]["text"]) > 3500:
+        full_text = pages[0]["text"]
+        pages = []
+        page_num = 1
+        for i in range(0, len(full_text), 3500):
+            pages.append({"text": full_text[i:i+3500], "source": uploaded_file.name, "page": page_num})
+            page_num += 1
+            
+    return pages
 
 def load_txt_stream(uploaded_file):
     text = uploaded_file.read().decode("utf-8", errors="ignore").strip()
@@ -65,14 +95,14 @@ def chunk_documents(pages):
             start += CHUNK_SIZE - CHUNK_OVERLAP
     return all_chunks
 
-SYSTEM_PROMPT = """You are a precise document Q&A assistant.
+SYSTEM_PROMPT = """You are a helpful and detailed document Q&A assistant.
 Rules:
 1. Answer ONLY using the information in the context provided.
 2. If the answer is not in the context, say: "I could not find an answer to that question in the provided documents."
-3. Always end with Sources: - <filename>, page <N>
-4. Be concise and factual."""
+3. Provide a clear, comprehensive answer with necessary details and explanations about the topic based on the context. Do not just return the page numbers.
+4. Always end your response with a 'Sources:' section, listing the filenames and page numbers (e.g., Sources: - <filename>, page <N>)."""
 
-st.set_page_config(page_title="RAG Q&A Bot", page_icon="📚", layout="centered")
+st.set_page_config(page_title="RAG Q&A Bot", page_icon="📚", layout="wide")
 
 # Inject premium CSS design styles
 st.markdown("""
@@ -568,6 +598,9 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+if "history" not in st.session_state:
+    st.session_state.history = []
+
 # Build the custom sidebar matching the screenshot
 with st.sidebar:
     st.markdown("### <img src='https://em-content.zobj.net/source/apple/391/robot_1f916.png' width='30' style='vertical-align: middle; margin-right: 8px; margin-bottom: 4px;'> AI RAG Chatbot\n**Powered by Groq**", unsafe_allow_html=True)
@@ -636,7 +669,7 @@ with st.sidebar:
     
     # Action Buttons Side-by-Side
     bc1, bc2 = st.columns(2)
-    if bc1.button("🖌️ Clear Chat", use_container_width=True):
+    if bc1.button("✨ New Chat", use_container_width=True):
         st.session_state.history = []
         st.rerun()
     if bc2.button("🗑️ Reset All", type="primary", use_container_width=True):
@@ -649,12 +682,18 @@ with st.sidebar:
             pass
         st.rerun()
 
+    st.markdown("<hr style='margin: 15px 0; border-color: rgba(255,255,255,0.05);'>", unsafe_allow_html=True)
+    st.markdown("### 🕒 Chat History")
+    if st.session_state.history:
+        for entry in reversed(st.session_state.history):
+            title = entry['question'][:40] + ("..." if len(entry['question']) > 40 else "")
+            st.markdown(f"<div class='sidebar-history-item'>💬 {title}</div>", unsafe_allow_html=True)
+    else:
+        st.markdown("<div style='color: #94a3b8; font-size: 0.9rem;'>No chat history yet.</div>", unsafe_allow_html=True)
+
 if collection is None or collection.count() == 0:
     st.info("👋 **Welcome!** Your database is currently empty.\n\nPlease upload documents using the sidebar on the left and click **'Process Documents'** to begin.")
     st.stop()
-
-if "history" not in st.session_state:
-    st.session_state.history = []
 
 # Show welcome message if chat is empty
 if not st.session_state.history:
