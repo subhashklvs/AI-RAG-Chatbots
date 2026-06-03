@@ -95,12 +95,12 @@ def chunk_documents(pages):
             start += CHUNK_SIZE - CHUNK_OVERLAP
     return all_chunks
 
-SYSTEM_PROMPT = """You are a helpful and detailed document Q&A assistant.
+SYSTEM_PROMPT = """You are a helpful and detailed AI assistant.
 Rules:
-1. Answer ONLY using the information in the context provided.
-2. If the answer is not in the context, say: "I could not find an answer to that question in the provided documents."
-3. Provide a clear, comprehensive answer with necessary details and explanations about the topic based on the context. Do not just return the page numbers.
-4. Always end your response with a 'Sources:' section, listing the filenames and page numbers (e.g., Sources: - <filename>, page <N>)."""
+1. Prioritize answering using the information in the provided context if it is relevant.
+2. If no context is provided, or if the answer is not found in the documents, use your general knowledge to answer the question. If you do this, politely mention that you are answering from general knowledge because the documents didn't contain the information.
+3. Provide a clear, comprehensive answer with necessary details and explanations about the topic. Do not just return the page numbers.
+4. If you used the provided documents, always end your response with a 'Sources:' section, listing the filenames and page numbers (e.g., Sources: - <filename>, page <N>)."""
 
 st.set_page_config(page_title="RAG Q&A Bot", page_icon="📚", layout="wide")
 
