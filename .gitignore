@@ -17,4 +17,4 @@ build/
 Thumbs.db
 
 # Streamlit
-.streamlit/
+# (Make sure to commit .streamlit/config.toml so the theme applies on deployment)
