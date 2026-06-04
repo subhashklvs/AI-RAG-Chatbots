@@ -116,6 +116,11 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
     color: #f1f5f9 !important;
 }
 
+/* Force light text color to fix light-mode deployment defaults */
+p, span, label, small, h1, h2, h3, h4, h5, h6, li, .stMarkdown p, .stMarkdown span, [data-testid="stAlert"] * {
+    color: #f1f5f9 !important;
+}
+
 /* Radical grid background */
 [data-testid="stAppViewContainer"]::before {
     content: '';
