@@ -16,6 +16,7 @@ import io
 import time
 import fitz  # PyMuPDF
 import docx
+from auth.auth_handler import register_user, authenticate_user
 
 load_dotenv()
 
@@ -599,6 +600,151 @@ else:
         except Exception:
             collection = None
 
+# --- SESSION & AUTHENTICATION MANAGEMENT ---
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "username" not in st.session_state:
+    st.session_state.username = None
+if "auth_page" not in st.session_state:
+    st.session_state.auth_page = "login"
+
+if not st.session_state.authenticated:
+    # Custom CSS for Auth Page (Highly compact layout)
+    st.markdown("""
+    <style>
+    /* Styling for secondary buttons on Login/Register page */
+    button[data-testid="stBaseButton-secondary"] {
+        background: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        color: #cbd5e1 !important;
+        font-weight: 500 !important;
+        border-radius: 10px !important;
+        padding: 6px 12px !important;
+        transition: all 0.3s ease !important;
+        width: 100% !important;
+        font-size: 0.85rem !important;
+    }
+    button[data-testid="stBaseButton-secondary"]:hover {
+        background: rgba(99, 102, 241, 0.1) !important;
+        border-color: rgba(99, 102, 241, 0.3) !important;
+        color: #818cf8 !important;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1) !important;
+    }
+    /* Reduce container padding for the auth screens specifically */
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+    /* Compact forms for auth screens */
+    [data-testid="stForm"] {
+        padding: 16px 20px !important;
+        margin-bottom: 8px !important;
+    }
+    .stTextInput input {
+        padding: 8px 12px !important;
+        font-size: 0.9rem !important;
+    }
+    .stTextInput label {
+        font-size: 0.8rem !important;
+        margin-bottom: 1px !important;
+    }
+    /* Hide "Press Enter to submit form" helper text */
+    [data-testid="InputInstructions"] {
+        display: none !important;
+    }
+    button[kind="primaryFormSubmit"] {
+        padding: 8px 16px !important;
+        margin-top: 4px !important;
+        font-size: 0.9rem !important;
+    }
+    /* Reduce vertical space between Streamlit elements in auth */
+    [data-testid="stVerticalBlock"] > div {
+        gap: 0.4rem !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Center Column for form
+    col1, col2, col3 = st.columns([1.3, 1.2, 1.3])
+    
+    with col2:
+        # Header block
+        st.markdown("""
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 1vh; margin-bottom: 10px;">
+            <div style="width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px rgba(99, 102, 241, 0.4); margin-bottom: 8px;">
+                <span style="font-size: 1.5rem;">🤖</span>
+            </div>
+            <h2 style="color: #ffffff; font-weight: 700; margin: 0; font-size: 1.6rem; text-align: center; font-family: 'Outfit', sans-serif;">AI RAG Chatbot</h2>
+            <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 2px; margin-bottom: 8px; text-align: center;">Your intelligent document assistant</p>
+            <div style="display: flex; gap: 5px; justify-content: center; margin-bottom: 3px;">
+                <span style="background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); color: #c7d2fe; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 20px;">LLaMA</span>
+                <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #a7f3d0; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 20px;">Groq</span>
+                <span style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #fde68a; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 20px;">ChromaDB</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.session_state.auth_page == "login":
+            with st.form("login_form"):
+                st.markdown("<h3 style='text-align: center; color: #ffffff; margin-bottom: 10px; font-weight: 600;'>Sign In</h3>", unsafe_allow_html=True)
+                username = st.text_input("Username", key="login_username", placeholder="Enter your username")
+                password = st.text_input("Password", type="password", key="login_password", placeholder="Enter your password")
+                
+                submit_btn = st.form_submit_button("Sign In", type="primary")
+                
+                if submit_btn:
+                    success, msg = authenticate_user(username, password)
+                    if success:
+                        st.session_state.authenticated = True
+                        st.session_state.username = username
+                        st.success("🎉 Welcome back!")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error(f"❌ {msg}")
+            
+            st.markdown("<div style='height: 2px;'></div>", unsafe_allow_html=True)
+            col_l, col_r = st.columns([1.6, 1])
+            with col_l:
+                st.markdown("<p style='margin-top: 4px; color: #94a3b8; font-size: 0.85rem;'>Don't have an account?</p>", unsafe_allow_html=True)
+            with col_r:
+                if st.button("Create Account", key="go_to_register", type="secondary", use_container_width=True):
+                    st.session_state.auth_page = "register"
+                    st.rerun()
+        else:
+            with st.form("register_form"):
+                st.markdown("<h3 style='text-align: center; color: #ffffff; margin-bottom: 10px; font-weight: 600;'>Create Account</h3>", unsafe_allow_html=True)
+                username = st.text_input("Username", key="reg_username", placeholder="Choose a username")
+                password = st.text_input("Password", type="password", key="reg_password", placeholder="Choose a password")
+                confirm_password = st.text_input("Confirm Password", type="password", key="reg_confirm_password", placeholder="Confirm your password")
+                
+                submit_btn = st.form_submit_button("Register", type="primary")
+                
+                if submit_btn:
+                    if not username.strip() or not password:
+                        st.error("❌ Username and password cannot be empty.")
+                    elif password != confirm_password:
+                        st.error("❌ Passwords do not match.")
+                    else:
+                        success, msg = register_user(username, password)
+                        if success:
+                            st.success("🎉 Registration successful! You can now sign in.")
+                            st.session_state.auth_page = "login"
+                            time.sleep(1.5)
+                            st.rerun()
+                        else:
+                            st.error(f"❌ {msg}")
+                            
+            st.markdown("<div style='height: 2px;'></div>", unsafe_allow_html=True)
+            col_l, col_r = st.columns([1.8, 1])
+            with col_l:
+                st.markdown("<p style='margin-top: 4px; color: #94a3b8; font-size: 0.85rem;'>Already have an account?</p>", unsafe_allow_html=True)
+            with col_r:
+                if st.button("Sign In", key="go_to_login", type="secondary", use_container_width=True):
+                    st.session_state.auth_page = "login"
+                    st.rerun()
+    st.stop()
+
 # Create the top wide gradient banner card matching the screenshot
 st.markdown("""
 <div class="top-banner-card">
@@ -616,6 +762,30 @@ if "all_history" not in st.session_state:
 with st.sidebar:
     st.markdown("### <img src='https://em-content.zobj.net/source/apple/391/robot_1f916.png' width='30' style='vertical-align: middle; margin-right: 8px; margin-bottom: 4px;'> AI RAG Chatbot\n**Powered by Groq**", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
+    
+    # User Profile Block & Logout
+    st.markdown(f"""
+    <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 12px 16px; border-radius: 12px; margin-bottom: 15px;">
+        <div style="width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; font-size: 1.1rem; font-family: 'Outfit', sans-serif;">
+            {st.session_state.username[0].upper() if st.session_state.username else 'U'}
+        </div>
+        <div style="flex-grow: 1; min-width: 0;">
+            <div style="font-size: 0.75rem; color: #94a3b8; font-family: 'Outfit', sans-serif;">Logged in as</div>
+            <div style="font-weight: 600; color: #f1f5f9; font-size: 0.9rem; font-family: 'Outfit', sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{st.session_state.username}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("🚪 Log Out", key="logout_btn", use_container_width=True):
+        st.session_state.authenticated = False
+        st.session_state.username = None
+        st.session_state.history = []
+        st.session_state.all_history = []
+        st.success("Logged out successfully!")
+        time.sleep(1.0)
+        st.rerun()
+        
+    st.markdown("<hr style='margin: 15px 0; border-color: rgba(255,255,255,0.05);'>", unsafe_allow_html=True)
     
     # Metrics Row
     c1, c2 = st.columns(2)
