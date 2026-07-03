@@ -609,20 +609,25 @@ def logout():
     st.session_state.username = None
     st.session_state.history = []
     st.session_state.all_history = []
+    st.session_state.logout_triggered = True
     try:
         controller.remove('auth_username')
     except Exception:
         pass
 
 # Try to auto-login using persisted cookie
-if "authenticated" not in st.session_state or not st.session_state.authenticated:
-    try:
-        persisted_username = controller.get('auth_username')
-        if persisted_username:
-            st.session_state.authenticated = True
-            st.session_state.username = persisted_username
-    except Exception:
-        pass
+if "logout_triggered" not in st.session_state:
+    st.session_state.logout_triggered = False
+
+if not st.session_state.logout_triggered:
+    if "authenticated" not in st.session_state or not st.session_state.authenticated:
+        try:
+            persisted_username = st.context.cookies.get('auth_username')
+            if persisted_username:
+                st.session_state.authenticated = True
+                st.session_state.username = persisted_username
+        except Exception:
+            pass
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -724,6 +729,7 @@ if not st.session_state.authenticated:
                 if success:
                     st.session_state.authenticated = True
                     st.session_state.username = username
+                    st.session_state.logout_triggered = False
                     try:
                         controller.set('auth_username', username)
                     except Exception:
