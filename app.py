@@ -21,7 +21,15 @@ from streamlit_cookies_controller import CookieController
 
 load_dotenv()
 
+# Load API Key with fallback to Streamlit secrets
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if not GROQ_API_KEY and "GROQ_API_KEY" in st.secrets:
+    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+
+if not GROQ_API_KEY:
+    st.error("🔑 **GROQ_API_KEY is missing!** Please add it to your environment variables or Streamlit Secrets (under settings -> Secrets).")
+    st.stop()
+
 client = Groq(api_key=GROQ_API_KEY)
 
 CHROMA_PATH = Path("chroma_db")
@@ -965,16 +973,22 @@ if question and question.strip():
                       for d, m, dist in zip(results["documents"][0], results["metadatas"][0], results["distances"][0])]
             context = "\n\n".join(f"[Source: {c['source']}, Page {c['page']}]\n{c['text']}" for c in chunks)
             
-        response = client.chat.completions.create(
-            model=GENERATION_MODEL,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"}
-            ],
-            temperature=0.2,
-            max_tokens=1024,
-        )
-        answer = response.choices[0].message.content.strip()
-        st.session_state.history.append({"question": question, "answer": answer, "chunks": chunks})
-        st.session_state.all_history.append({"question": question, "answer": answer, "chunks": chunks})
-        st.rerun()
+        try:
+            response = client.chat.completions.create(
+                model=GENERATION_MODEL,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"}
+                ],
+                temperature=0.2,
+                max_tokens=1024,
+            )
+            answer = response.choices[0].message.content.strip()
+            st.session_state.history.append({"question": question, "answer": answer, "chunks": chunks})
+            st.session_state.all_history.append({"question": question, "answer": answer, "chunks": chunks})
+            st.rerun()
+        except Exception as e:
+            if "AuthenticationError" in str(type(e)) or "401" in str(e):
+                st.error("🔑 **Groq Authentication Error:** The API key provided is invalid, expired, or revoked. Please verify the `GROQ_API_KEY` configured in your Streamlit Secrets.")
+            else:
+                st.error(f"❌ **API Error:** {str(e)}")
