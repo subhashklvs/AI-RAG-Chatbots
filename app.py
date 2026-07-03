@@ -20,6 +20,10 @@ from auth.auth_handler import register_user, authenticate_user
 
 load_dotenv()
 
+print(f"\n[DEBUG RUN] session_state keys: {list(st.session_state.keys())}")
+if "authenticated" in st.session_state:
+    print(f"[DEBUG RUN] authenticated: {st.session_state.authenticated}, username: {st.session_state.username}")
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 client = Groq(api_key=GROQ_API_KEY)
 
