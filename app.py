@@ -604,33 +604,44 @@ else:
 # --- SESSION & AUTHENTICATION MANAGEMENT ---
 controller = CookieController()
 
+
 def logout():
     st.session_state.authenticated = False
     st.session_state.username = None
     st.session_state.history = []
     st.session_state.all_history = []
     st.session_state.logout_triggered = True
+    st.query_params.pop("user", None)
     try:
         controller.remove('auth_username')
     except Exception:
         pass
 
-# Try to auto-login using persisted cookie
+# Try to auto-login using query parameters or persisted cookies
 if "logout_triggered" not in st.session_state:
     st.session_state.logout_triggered = False
 
 if not st.session_state.logout_triggered:
+    # 1. Check query parameters first (instant, zero-flicker reconnect)
+    query_user = st.query_params.get("user")
+    if query_user:
+        st.session_state.authenticated = True
+        st.session_state.username = query_user
+    
+    # 2. Fall back to cookies if query params are not present
     if "authenticated" not in st.session_state or not st.session_state.authenticated:
         try:
-            # 1. Try synchronous check first (zero flicker)
+            # 2a. Try synchronous check first
             persisted_username = st.context.cookies.get('auth_username')
-            # 2. Fall back to asynchronous component check if headers are not available (e.g. during dev hot-reloads)
+            # 2b. Fall back to client-side cookie component check
             if not persisted_username:
                 persisted_username = controller.get('auth_username')
                 
             if persisted_username:
                 st.session_state.authenticated = True
                 st.session_state.username = persisted_username
+                # Sync back to query params for future reconnects
+                st.query_params["user"] = persisted_username
         except Exception:
             pass
 
@@ -735,6 +746,7 @@ if not st.session_state.authenticated:
                     st.session_state.authenticated = True
                     st.session_state.username = username
                     st.session_state.logout_triggered = False
+                    st.query_params["user"] = username
                     try:
                         # Set persistent cookie with 30-day expiration (in seconds)
                         controller.set('auth_username', username, max_age=2592000)
