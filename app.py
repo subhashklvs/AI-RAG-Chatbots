@@ -16,7 +16,7 @@ import io
 import time
 import fitz  # PyMuPDF
 import docx
-from auth.auth_handler import register_user, authenticate_user
+from auth.auth_handler import register_user, authenticate_user, save_chat_history, load_chat_history, clear_chat_history
 from streamlit_cookies_controller import CookieController
 
 load_dotenv()
@@ -755,6 +755,9 @@ if not st.session_state.authenticated:
                     st.session_state.username = username
                     st.session_state.logout_triggered = False
                     st.query_params["user"] = username
+                    # Clear session state history so it reloads from database for this user
+                    st.session_state.pop("history", None)
+                    st.session_state.pop("all_history", None)
                     try:
                         # Set persistent cookie with 30-day expiration (in seconds)
                         controller.set('auth_username', username, max_age=2592000)
@@ -816,10 +819,10 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-if "history" not in st.session_state:
-    st.session_state.history = []
 if "all_history" not in st.session_state:
-    st.session_state.all_history = []
+    st.session_state.all_history = load_chat_history(st.session_state.username) if st.session_state.get("username") else []
+if "history" not in st.session_state:
+    st.session_state.history = list(st.session_state.all_history)
 
 # Build the custom sidebar matching the screenshot
 with st.sidebar:
@@ -912,6 +915,8 @@ with st.sidebar:
     if bc2.button("🗑️ Reset All", type="primary", use_container_width=True):
         st.session_state.history = []
         st.session_state.all_history = []
+        if st.session_state.get("username"):
+            clear_chat_history(st.session_state.username)
         try:
             chroma = chromadb.PersistentClient(path=str(CHROMA_PATH), settings=Settings(anonymized_telemetry=False))
             chroma.delete_collection(COLLECTION_NAME)
@@ -986,6 +991,8 @@ if question and question.strip():
             answer = response.choices[0].message.content.strip()
             st.session_state.history.append({"question": question, "answer": answer, "chunks": chunks})
             st.session_state.all_history.append({"question": question, "answer": answer, "chunks": chunks})
+            if st.session_state.get("username"):
+                save_chat_history(st.session_state.username, question, answer, chunks)
             st.rerun()
         except Exception as e:
             if "AuthenticationError" in str(type(e)) or "401" in str(e):

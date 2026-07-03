@@ -2,6 +2,7 @@ import sqlite3
 import hashlib
 import secrets
 import os
+import json
 
 # Database path is set relative to this file's directory (parent/users.db)
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "users.db")
@@ -16,6 +17,17 @@ def init_db():
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS chat_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            question TEXT NOT NULL,
+            answer TEXT NOT NULL,
+            chunks_json TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(username) REFERENCES users(username)
         );
     """)
     conn.commit()
@@ -92,3 +104,64 @@ def authenticate_user(username: str, password: str) -> tuple[bool, str]:
     except sqlite3.Error as e:
         conn.close()
         return False, f"Database error: {str(e)}"
+
+def save_chat_history(username: str, question: str, answer: str, chunks: list) -> bool:
+    """Saves a single Q&A entry with retrieved chunks to the database."""
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        chunks_json = json.dumps(chunks)
+        cursor.execute("""
+            INSERT INTO chat_history (username, question, answer, chunks_json)
+            VALUES (?, ?, ?, ?)
+        """, (username, question, answer, chunks_json))
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.Error:
+        conn.close()
+        return False
+
+def load_chat_history(username: str) -> list:
+    """Loads all chat history entries for a given user from the database."""
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    history = []
+    try:
+        cursor.execute("""
+            SELECT question, answer, chunks_json 
+            FROM chat_history 
+            WHERE username = ? 
+            ORDER BY id ASC
+        """, (username,))
+        rows = cursor.fetchall()
+        conn.close()
+        for row in rows:
+            try:
+                chunks = json.loads(row[2])
+            except Exception:
+                chunks = []
+            history.append({
+                "question": row[0],
+                "answer": row[1],
+                "chunks": chunks
+            })
+    except sqlite3.Error:
+        conn.close()
+    return history
+
+def clear_chat_history(username: str) -> bool:
+    """Clears all chat history entries for a given user from the database."""
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM chat_history WHERE username = ?", (username,))
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.Error:
+        conn.close()
+        return False
