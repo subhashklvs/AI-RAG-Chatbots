@@ -17,12 +17,9 @@ import time
 import fitz  # PyMuPDF
 import docx
 from auth.auth_handler import register_user, authenticate_user
+from streamlit_cookies_controller import CookieController
 
 load_dotenv()
-
-print(f"\n[DEBUG RUN] session_state keys: {list(st.session_state.keys())}")
-if "authenticated" in st.session_state:
-    print(f"[DEBUG RUN] authenticated: {st.session_state.authenticated}, username: {st.session_state.username}")
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 client = Groq(api_key=GROQ_API_KEY)
@@ -605,6 +602,28 @@ else:
             collection = None
 
 # --- SESSION & AUTHENTICATION MANAGEMENT ---
+controller = CookieController()
+
+def logout():
+    st.session_state.authenticated = False
+    st.session_state.username = None
+    st.session_state.history = []
+    st.session_state.all_history = []
+    try:
+        controller.remove('auth_username')
+    except Exception:
+        pass
+
+# Try to auto-login using persisted cookie
+if "authenticated" not in st.session_state or not st.session_state.authenticated:
+    try:
+        persisted_username = controller.get('auth_username')
+        if persisted_username:
+            st.session_state.authenticated = True
+            st.session_state.username = persisted_username
+    except Exception:
+        pass
+
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "username" not in st.session_state:
@@ -665,88 +684,96 @@ if not st.session_state.authenticated:
     [data-testid="stVerticalBlock"] > div {
         gap: 0.4rem !important;
     }
+    /* Center and restrict width of the auth elements responsively */
+    [data-testid="stForm"], 
+    [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] {
+        max-width: 420px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        width: 100% !important;
+    }
     </style>
     """, unsafe_allow_html=True)
     
-    # Center Column for form
-    col1, col2, col3 = st.columns([1.3, 1.2, 1.3])
-    
-    with col2:
-        # Header block
-        st.markdown("""
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 1vh; margin-bottom: 10px;">
-            <div style="width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px rgba(99, 102, 241, 0.4); margin-bottom: 8px;">
-                <span style="font-size: 1.5rem;">🤖</span>
-            </div>
-            <h2 style="color: #ffffff; font-weight: 700; margin: 0; font-size: 1.6rem; text-align: center; font-family: 'Outfit', sans-serif;">AI RAG Chatbot</h2>
-            <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 2px; margin-bottom: 8px; text-align: center;">Your intelligent document assistant</p>
-            <div style="display: flex; gap: 5px; justify-content: center; margin-bottom: 3px;">
-                <span style="background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); color: #c7d2fe; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 20px;">LLaMA</span>
-                <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #a7f3d0; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 20px;">Groq</span>
-                <span style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #fde68a; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 20px;">ChromaDB</span>
-            </div>
+    # Header block
+    st.markdown("""
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 1vh; margin-bottom: 10px;">
+        <div style="width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px rgba(99, 102, 241, 0.4); margin-bottom: 8px;">
+            <span style="font-size: 1.5rem;">🤖</span>
         </div>
-        """, unsafe_allow_html=True)
+        <h2 style="color: #ffffff; font-weight: 700; margin: 0; font-size: 1.6rem; text-align: center; font-family: 'Outfit', sans-serif;">AI RAG Chatbot</h2>
+        <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 2px; margin-bottom: 8px; text-align: center;">Your intelligent document assistant</p>
+        <div style="display: flex; gap: 5px; justify-content: center; margin-bottom: 3px;">
+            <span style="background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); color: #c7d2fe; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 20px;">LLaMA</span>
+            <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #a7f3d0; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 20px;">Groq</span>
+            <span style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #fde68a; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 20px;">ChromaDB</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.session_state.auth_page == "login":
+        with st.form("login_form"):
+            st.markdown("<h3 style='text-align: center; color: #ffffff; margin-bottom: 10px; font-weight: 600;'>Sign In</h3>", unsafe_allow_html=True)
+            username = st.text_input("Username", key="login_username", placeholder="Enter your username")
+            password = st.text_input("Password", type="password", key="login_password", placeholder="Enter your password")
+            
+            submit_btn = st.form_submit_button("Sign In", type="primary")
+            
+            if submit_btn:
+                success, msg = authenticate_user(username, password)
+                if success:
+                    st.session_state.authenticated = True
+                    st.session_state.username = username
+                    try:
+                        controller.set('auth_username', username)
+                    except Exception:
+                        pass
+                    st.success("🎉 Welcome back!")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error(f"❌ {msg}")
         
-        if st.session_state.auth_page == "login":
-            with st.form("login_form"):
-                st.markdown("<h3 style='text-align: center; color: #ffffff; margin-bottom: 10px; font-weight: 600;'>Sign In</h3>", unsafe_allow_html=True)
-                username = st.text_input("Username", key="login_username", placeholder="Enter your username")
-                password = st.text_input("Password", type="password", key="login_password", placeholder="Enter your password")
-                
-                submit_btn = st.form_submit_button("Sign In", type="primary")
-                
-                if submit_btn:
-                    success, msg = authenticate_user(username, password)
+        st.markdown("<div style='height: 2px;'></div>", unsafe_allow_html=True)
+        col_l, col_r = st.columns([1.6, 1])
+        with col_l:
+            st.markdown("<p style='margin-top: 4px; color: #94a3b8; font-size: 0.85rem;'>Don't have an account?</p>", unsafe_allow_html=True)
+        with col_r:
+            if st.button("Create Account", key="go_to_register", type="secondary", use_container_width=True):
+                st.session_state.auth_page = "register"
+                st.rerun()
+    else:
+        with st.form("register_form"):
+            st.markdown("<h3 style='text-align: center; color: #ffffff; margin-bottom: 10px; font-weight: 600;'>Create Account</h3>", unsafe_allow_html=True)
+            username = st.text_input("Username", key="reg_username", placeholder="Choose a username")
+            password = st.text_input("Password", type="password", key="reg_password", placeholder="Choose a password")
+            confirm_password = st.text_input("Confirm Password", type="password", key="reg_confirm_password", placeholder="Confirm your password")
+            
+            submit_btn = st.form_submit_button("Register", type="primary")
+            
+            if submit_btn:
+                if not username.strip() or not password:
+                    st.error("❌ Username and password cannot be empty.")
+                elif password != confirm_password:
+                    st.error("❌ Passwords do not match.")
+                else:
+                    success, msg = register_user(username, password)
                     if success:
-                        st.session_state.authenticated = True
-                        st.session_state.username = username
-                        st.success("🎉 Welcome back!")
-                        time.sleep(1)
+                        st.success("🎉 Registration successful! You can now sign in.")
+                        st.session_state.auth_page = "login"
+                        time.sleep(1.5)
                         st.rerun()
                     else:
                         st.error(f"❌ {msg}")
-            
-            st.markdown("<div style='height: 2px;'></div>", unsafe_allow_html=True)
-            col_l, col_r = st.columns([1.6, 1])
-            with col_l:
-                st.markdown("<p style='margin-top: 4px; color: #94a3b8; font-size: 0.85rem;'>Don't have an account?</p>", unsafe_allow_html=True)
-            with col_r:
-                if st.button("Create Account", key="go_to_register", type="secondary", use_container_width=True):
-                    st.session_state.auth_page = "register"
-                    st.rerun()
-        else:
-            with st.form("register_form"):
-                st.markdown("<h3 style='text-align: center; color: #ffffff; margin-bottom: 10px; font-weight: 600;'>Create Account</h3>", unsafe_allow_html=True)
-                username = st.text_input("Username", key="reg_username", placeholder="Choose a username")
-                password = st.text_input("Password", type="password", key="reg_password", placeholder="Choose a password")
-                confirm_password = st.text_input("Confirm Password", type="password", key="reg_confirm_password", placeholder="Confirm your password")
-                
-                submit_btn = st.form_submit_button("Register", type="primary")
-                
-                if submit_btn:
-                    if not username.strip() or not password:
-                        st.error("❌ Username and password cannot be empty.")
-                    elif password != confirm_password:
-                        st.error("❌ Passwords do not match.")
-                    else:
-                        success, msg = register_user(username, password)
-                        if success:
-                            st.success("🎉 Registration successful! You can now sign in.")
-                            st.session_state.auth_page = "login"
-                            time.sleep(1.5)
-                            st.rerun()
-                        else:
-                            st.error(f"❌ {msg}")
-                            
-            st.markdown("<div style='height: 2px;'></div>", unsafe_allow_html=True)
-            col_l, col_r = st.columns([1.8, 1])
-            with col_l:
-                st.markdown("<p style='margin-top: 4px; color: #94a3b8; font-size: 0.85rem;'>Already have an account?</p>", unsafe_allow_html=True)
-            with col_r:
-                if st.button("Sign In", key="go_to_login", type="secondary", use_container_width=True):
-                    st.session_state.auth_page = "login"
-                    st.rerun()
+                        
+        st.markdown("<div style='height: 2px;'></div>", unsafe_allow_html=True)
+        col_l, col_r = st.columns([1.8, 1])
+        with col_l:
+            st.markdown("<p style='margin-top: 4px; color: #94a3b8; font-size: 0.85rem;'>Already have an account?</p>", unsafe_allow_html=True)
+        with col_r:
+            if st.button("Sign In", key="go_to_login", type="secondary", use_container_width=True):
+                st.session_state.auth_page = "login"
+                st.rerun()
     st.stop()
 
 # Create the top wide gradient banner card matching the screenshot
@@ -780,14 +807,7 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("🚪 Log Out", key="logout_btn", use_container_width=True):
-        st.session_state.authenticated = False
-        st.session_state.username = None
-        st.session_state.history = []
-        st.session_state.all_history = []
-        st.success("Logged out successfully!")
-        time.sleep(1.0)
-        st.rerun()
+    st.button("🚪 Log Out", key="logout_btn", use_container_width=True, on_click=logout)
         
     st.markdown("<hr style='margin: 15px 0; border-color: rgba(255,255,255,0.05);'>", unsafe_allow_html=True)
     
