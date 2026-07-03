@@ -622,7 +622,12 @@ if "logout_triggered" not in st.session_state:
 if not st.session_state.logout_triggered:
     if "authenticated" not in st.session_state or not st.session_state.authenticated:
         try:
+            # 1. Try synchronous check first (zero flicker)
             persisted_username = st.context.cookies.get('auth_username')
+            # 2. Fall back to asynchronous component check if headers are not available (e.g. during dev hot-reloads)
+            if not persisted_username:
+                persisted_username = controller.get('auth_username')
+                
             if persisted_username:
                 st.session_state.authenticated = True
                 st.session_state.username = persisted_username
@@ -731,7 +736,8 @@ if not st.session_state.authenticated:
                     st.session_state.username = username
                     st.session_state.logout_triggered = False
                     try:
-                        controller.set('auth_username', username)
+                        # Set persistent cookie with 30-day expiration (in seconds)
+                        controller.set('auth_username', username, max_age=2592000)
                     except Exception:
                         pass
                     st.success("🎉 Welcome back!")
